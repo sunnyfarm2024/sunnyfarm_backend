@@ -33,6 +33,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/user/login",
                         "/user/register",
                         "/user/check-email",
+                        "/user/google-login",
                         "/user/logout"); // 제외할 URL 패턴
     }
 }

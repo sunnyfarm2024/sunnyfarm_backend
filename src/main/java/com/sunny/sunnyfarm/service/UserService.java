@@ -1,5 +1,6 @@
 package com.sunny.sunnyfarm.service;
 
+import com.sunny.sunnyfarm.dto.GoogleAuthResult;
 import com.sunny.sunnyfarm.dto.UserDto;
 import com.sunny.sunnyfarm.dto.UserLoginDto;
 import org.springframework.web.multipart.MultipartFile;
@@ -13,4 +14,6 @@ public interface UserService {
     Integer getUserIdByEmail(String email);
     UserDto getUser(Integer userId);
     CheckResult saveProfilePicture(Integer userId, MultipartFile file);
+    GoogleAuthResult processGoogleAuth(String code);
+    CheckResult saveLocation(Integer userId, Float latitude, Float longitude);
 }

@@ -1,5 +1,6 @@
 package com.sunny.sunnyfarm.service.impl;
 
+import com.sunny.sunnyfarm.dto.GoogleAuthResult;
 import com.sunny.sunnyfarm.dto.UserDto;
 import com.sunny.sunnyfarm.dto.UserLoginDto;
 import com.sunny.sunnyfarm.entity.*;
@@ -15,6 +16,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +32,7 @@ public class UserServiceImpl implements UserService {
     private final TitleRepository titleRepository;
     private final UserTitleRepository userTitleRepository;
     private final ShopRepository shopRepository;
+    private final GoogleOAuthService googleOAuthService;
     private static final String UPLOAD_DIR = "/Applications/sunnyfarm/src/main/resources/static/uploads/";
 
     // user_id
@@ -96,15 +100,22 @@ public class UserServiceImpl implements UserService {
         userRepository.save(savedUser);
 
         // 기본 프로필 이미지 복사
-        Path sourcePath = Paths.get("/Applications/sunnyfarm/src/main/resources/static/image/profile/profile.png");
-        Path targetPath = Paths.get("/Applications/sunnyfarm/src/main/resources/static/uploads/profile" + savedUser.getUserId() + ".png");
+        Path sourcePath = Paths.get("src/main/resources/static/image/profile/profile.png");
+        Path targetPath = Paths.get("src/main/resources/static/uploads/profile" + savedUser.getUserId() + ".png");
 
         try {
-            Files.createDirectories(targetPath.getParent()); // 대상 디렉토리 생성
-            Files.copy(sourcePath, targetPath); // 파일 복사
+            // 업로드 폴더가 없으면 생성
+            if (!Files.exists(targetPath.getParent())) {
+                Files.createDirectories(targetPath.getParent());
+            }
+            // 파일 복사
+            Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("파일 복사 성공. Target: " + targetPath);
         } catch (IOException e) {
+            System.err.println("파일 복사 실패. Source: " + sourcePath + ", Target: " + targetPath);
             throw new RuntimeException("프로필 이미지 복사 중 오류가 발생했습니다.", e);
         }
+
 
         Shop sign = shopRepository.findById(12).orElse(null);
 
@@ -162,27 +173,95 @@ public class UserServiceImpl implements UserService {
 
     // 로그인
     public CheckResult login(UserLoginDto userLoginDto) {
+        // 이메일로 사용자 조회
         User user = userRepository.findByEmail(userLoginDto.getEmail()).orElse(null);
 
-        if (user != null && passwordEncoder.matches(userLoginDto.getPassword(), user.getPassword())) {
+        if (user == null) {
+            return CheckResult.FAIL; // 사용자를 찾을 수 없음
+        }
 
-            // 위치 정보 저장
-            Float latitude = userLoginDto.getLatitude();
-            Float longitude = userLoginDto.getLongitude();
-            saveLocation(user, latitude, longitude);
+        // 비밀번호 검증
+        if (userLoginDto.getPassword() != null) {
+            // 일반 로그인: 비밀번호 검증
+            if (!passwordEncoder.matches(userLoginDto.getPassword(), user.getPassword())) {
+                return CheckResult.FAIL; // 비밀번호 불일치
+            }
+        }
 
-            return CheckResult.SUCCESS;
+        return CheckResult.SUCCESS; // 로그인 성공
+    }
+
+    public GoogleAuthResult processGoogleAuth(String code) {
+        try {
+            // Access Token 요청
+            String email = googleOAuthService.getUserEmail(code);
+
+            // UserLoginDto 생성
+            UserLoginDto userLoginDto = new UserLoginDto();
+            userLoginDto.setEmail(email); // Google에서 가져온 이메일 추가
+
+            // 이메일 기반 사용자 검증
+            User user = userRepository.findByEmail(email).orElse(null);
+
+            // 회원가입 후 로그인 또는 바로 로그인
+            if (user == null) {
+                // 사용자 등록
+                userLoginDto.setPassword(generateRandomPassword()); // 랜덤비밀번호 설정
+                CheckResult registerResult = register(userLoginDto);
+                if (registerResult != CheckResult.SUCCESS) {
+                    return new GoogleAuthResult(CheckResult.FAIL, email); // 회원가입 실패
+                }
+            } else {
+                userLoginDto.setPassword(null);
             }
 
-        return CheckResult.FAIL;
+            // 로그인 시도
+            CheckResult loginResult = login(userLoginDto);
+            if (loginResult != CheckResult.SUCCESS) {
+                return new GoogleAuthResult(CheckResult.FAIL, email); // 로그인 실패
+            }
+
+            return new GoogleAuthResult(CheckResult.SUCCESS, email); // 회원가입 또는 로그인 성공
+        } catch (Exception e) {
+            // 예외 발생 시 실패 처리
+            System.err.println("Google 인증 처리 중 오류: " + e.getMessage());
+            return new GoogleAuthResult(CheckResult.FAIL, null);
+        }
+    }
+
+    // 랜덤 비밀번호 생성
+    private String generateRandomPassword() {
+        int length = 8;
+        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder password = new StringBuilder();
+        Random random = new Random();
+        for (int i = 0; i < length; i++) {
+            password.append(characters.charAt(random.nextInt(characters.length())));
+        }
+        return password.toString();
     }
 
     // 위치 정보 저장
-    private void saveLocation(User user, Float latitude, Float longitude) {
-        if (latitude != null && longitude != null) {
+    public CheckResult saveLocation(Integer userId, Float latitude, Float longitude) {
+        try {
+            // 사용자 존재 여부 확인 및 처리
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다. ID: " + userId));
             user.setLatitude(latitude);
             user.setLongitude(longitude);
             userRepository.save(user);
+
+            System.out.println("위치 저장=========");
+            System.out.println(userId);
+            System.out.println(latitude);
+            System.out.println(longitude);
+            System.out.println("================");
+            // 성공 시 SUCCESS 반환
+            return CheckResult.SUCCESS;
+        } catch (Exception e) {
+            // 오류 발생 시 로그 기록
+            System.err.println("위치 정보 저장 중 오류: " + e.getMessage());
+            return CheckResult.FAIL;
         }
     }
 
@@ -231,36 +310,5 @@ public class UserServiceImpl implements UserService {
             return CheckResult.FAIL;
         }
     }
-
-//    // 구글로 로그인
-//    public User googleLogin(String email) {
-//        if (checkEmail(email)) {
-//            return userRepository.findByEmail(email).orElse(null);
-//        } else {
-//            UserLoginDto userLoginDto = new UserLoginDto();
-//            userLoginDto.setEmail(email);
-//            userLoginDto.setPassword(generateRandomPassword()); // 랜덤 비밀번호 설정
-//
-//            register(userLoginDto);
-//
-//            // 새로 생성된 사용자 반환
-//            return userRepository.findByEmail(email).orElse(null);
-//        }
-//    }
-//
-//    // 랜덤 비밀번호 생성
-//    private String generateRandomPassword() {
-//        int length = 12; // 비밀번호 길이
-//        String charPool = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
-//        StringBuilder password = new StringBuilder();
-//
-//        Random random = new Random();
-//        for (int i = 0; i < length; i++) {
-//            int index = random.nextInt(charPool.length());
-//            password.append(charPool.charAt(index));
-//        }
-//
-//        return password.toString();
-//    }
 
 }
