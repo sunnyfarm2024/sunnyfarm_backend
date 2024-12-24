@@ -12,7 +12,9 @@ public interface FarmRepository extends JpaRepository<Farm, Integer> {
     @Query("SELECT new com.sunny.sunnyfarm.dto.FarmDto( " +
             "  CASE WHEN f.sign IS NOT NULL THEN s1.itemImageUrl ELSE NULL END, " +
             "  CASE WHEN f.corner IS NOT NULL THEN s2.itemImageUrl ELSE NULL END, " +
-            "  f.farmDescription " +
+            "  f.farmDescription, " +
+            "  f.gnomeEndsAt, " +
+            "  f.gnomeImageUrl " +
             ") " +
             "FROM Farm f " +
             "LEFT JOIN Shop s1 ON f.sign.itemId = s1.itemId " +

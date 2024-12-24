@@ -30,17 +30,17 @@ public class FriendServiceImpl implements FriendService {
         List<FriendDto> pendingFriends = friendList.stream()
                 .filter(friend -> friend.getStatus() == Friend.FriendStatus.PENDING)
                 .map(friend -> new FriendDto(
-                        friend.getFriendUser().getUserId(),
-                        friend.getFriendUser().getUserName(),
-                        friend.getFriendUser().getProfilePicture())
+                        friend.getUser().getUserId(),
+                        friend.getUser().getUserName(),
+                        friend.getUser().getProfilePicture())
                 ).collect(Collectors.toList());
 
         List<FriendDto> acceptedFriends = friendList.stream()
                 .filter(friend -> friend.getStatus() == Friend.FriendStatus.ACCEPTED)
                 .map(friend -> new FriendDto(
-                        friend.getFriendUser().getUserId(),
-                        friend.getFriendUser().getUserName(),
-                        friend.getFriendUser().getProfilePicture())
+                        friend.getUser().getUserId(),
+                        friend.getUser().getUserName(),
+                        friend.getUser().getProfilePicture())
                 ).collect(Collectors.toList());
 
         // JSON 응답 형식에 맞게 구성
@@ -53,15 +53,20 @@ public class FriendServiceImpl implements FriendService {
 
 
     @Override
-    public List<FriendDto> searchFriend(String userName) {
+    public List<FriendDto> searchFriend(String userName, int userId) {
+        // 검색 결과 가져오기
         List<User> searchList = friendRepository.findByUserName(userName);
+
+        // 자신(currentUserId)을 필터링해서 제외
         return searchList.stream()
+                .filter(friend -> friend.getUserId() != userId) // 자신의 userId 제외
                 .map(friend -> new FriendDto(
                         friend.getUserId(),
                         friend.getUserName(),
                         friend.getProfilePicture())
                 ).collect(Collectors.toList());
     }
+
 
     private Friend.FriendStatus isFriend(int userId, int friendUserId) {
         Friend friend = friendRepository.findByUserIdAndFriendId(userId, friendUserId);

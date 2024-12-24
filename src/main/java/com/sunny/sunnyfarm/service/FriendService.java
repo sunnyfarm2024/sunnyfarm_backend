@@ -8,7 +8,7 @@ import java.util.Map;
 
 public interface FriendService {
     Map<String, List<FriendDto>> getFriendList(int userId);
-    List<FriendDto> searchFriend(String userName);
+    List<FriendDto> searchFriend(String userName, int userId);
     ResponseEntity<String> sendFriendRequest(int userId, int friendUserId);
     ResponseEntity<String> acceptFriendRequest(int userId, int friendUserId);
     ResponseEntity<String> rejectFriendRequest(int userId, int friendUserId);

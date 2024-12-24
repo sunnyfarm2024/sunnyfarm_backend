@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GuestbookDto {
-    private int authorId;
+    private String authorName;
     private String content;
     private LocalDateTime createdAt;
 }

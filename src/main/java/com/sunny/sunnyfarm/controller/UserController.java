@@ -1,11 +1,11 @@
 package com.sunny.sunnyfarm.controller;
 
 import com.sunny.sunnyfarm.dto.GoogleAuthResult;
+import com.sunny.sunnyfarm.dto.LocationDto;
 import com.sunny.sunnyfarm.dto.UserDto;
 import com.sunny.sunnyfarm.dto.UserLoginDto;
 import com.sunny.sunnyfarm.service.CheckResult;
 import com.sunny.sunnyfarm.service.UserService;
-import com.sunny.sunnyfarm.service.impl.GoogleOAuthService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/user")
@@ -30,8 +32,10 @@ public class UserController {
     }
 
     @GetMapping("/check-username")
-    public ResponseEntity<Boolean> checkUserName(@RequestParam String userName) {
-        boolean exists = userService.checkUserName(userName);
+    public ResponseEntity<Boolean> checkUserName(@RequestParam String userName, HttpSession session) {
+        Integer userId = (Integer) session.getAttribute("userId"); // 세션에서 userId 가져오기
+        boolean exists = userService.checkUserName(userName, userId);
+        System.out.println(exists);
         return ResponseEntity.ok(exists);
     }
 
@@ -73,7 +77,7 @@ public class UserController {
                 session.setAttribute("userId", userId);
 
                 // 성공 시 메인 페이지로 리디렉션
-                response.sendRedirect("http://localhost:3000/loading");
+                response.sendRedirect("http://localhost:3000/location");
             } else {
                 // 실패 시 로그인 페이지로 리디렉션
                 response.sendRedirect("http://localhost:3000/login?error=google-login-failed");
@@ -104,11 +108,28 @@ public class UserController {
     }
 
     @PostMapping("/profile-picture")
-    public ResponseEntity<CheckResult> updateProfilePicture(@RequestParam("file") MultipartFile file, HttpSession session) {
+    public ResponseEntity<Map<String, String>> updateProfilePicture(@RequestParam("file") MultipartFile file, HttpSession session) {
         Integer userId = (Integer) session.getAttribute("userId");
 
         CheckResult result = userService.saveProfilePicture(userId, file);
 
+        if (result == CheckResult.SUCCESS) {
+            // 이미지가 성공적으로 저장된 경우만 경로 반환
+            String newProfilePath = "/uploads/profile" + userId + ".png";
+            Map<String, String> response = new HashMap<>();
+            response.put("newProfilePath", newProfilePath);
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+
+    @PostMapping("/save-location")
+    public ResponseEntity<CheckResult> saveLocation(@RequestBody LocationDto locationDto, HttpSession session) {
+        Integer userId = (Integer) session.getAttribute("userId");
+
+        CheckResult result = userService.saveLocation(userId, locationDto.getLatitude(), locationDto.getLongitude());
         return switch (result) {
             case SUCCESS -> ResponseEntity.ok(CheckResult.SUCCESS);
             default -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(CheckResult.FAIL);

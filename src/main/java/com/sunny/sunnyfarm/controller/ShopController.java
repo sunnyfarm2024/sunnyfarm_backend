@@ -11,7 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @RequestMapping("/shop")
 public class ShopController {
@@ -25,6 +24,7 @@ public class ShopController {
     ResponseEntity<List<ShopDto>> getItemList(HttpSession session) {
         List<Shop> shop = shopService.getItemList();
         session.setAttribute("shop", shop);
+        System.out.println("Session Shop Attribute: " + session.getAttribute("shop"));
 
         List<ShopDto> itemList = shop.stream()
                 .map(item -> new ShopDto(
@@ -43,6 +43,7 @@ public class ShopController {
     @GetMapping("/check")
     ResponseEntity<Object> checkItemAvailability(HttpSession session, @RequestParam String itemName) {
         Integer userId = (Integer) session.getAttribute("userId");
+
         @SuppressWarnings("unchecked")
         List<Shop> shop = (List<Shop>) session.getAttribute("shop");
 
@@ -54,7 +55,6 @@ public class ShopController {
                 .filter(itemToPurchase -> itemToPurchase.getItemName().equals(itemName))
                 .findFirst()
                 .orElse(null);
-
 
         if (item == null) {
             return ResponseEntity.status(404).body("아이템을 찾을 수 없습니다.");
@@ -73,11 +73,13 @@ public class ShopController {
         boolean exist = shopService.checkItemAvailability(userId, item.getItemId());
 
         if (exist) {
+            System.out.println("ABC");
             Map<String, Object> response = new HashMap<>();
             response.put("check", "decoration");
             response.put("message", "중복된 인테리어입니다.");
             return ResponseEntity.status(400).body(response);
         } else {
+            System.out.println("DEF");
             return ResponseEntity.status(200).body("구매 가능한 아이템입니다");
         }
     }
@@ -86,10 +88,11 @@ public class ShopController {
     ResponseEntity<Object> purchaseItem(@RequestParam String itemName, HttpSession session) {
 
         // 확인용 출력
-        System.out.println("먀아아아아아악Item Name: " + itemName);
+        System.out.println("Item Name: " + itemName);
 
 
         Integer userId = (Integer) session.getAttribute("userId");
+        if (userId == null) userId = 1;
         @SuppressWarnings("unchecked")
         List<Shop> shop = (List<Shop>) session.getAttribute("shop");
 

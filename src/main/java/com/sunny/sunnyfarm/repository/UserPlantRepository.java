@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface UserPlantRepository extends JpaRepository<UserPlant,Integer> {
     @Query("SELECT up FROM UserPlant up WHERE up.userPlantId = :userPlantId")
@@ -20,4 +22,6 @@ public interface UserPlantRepository extends JpaRepository<UserPlant,Integer> {
     """)
     UserPlant getUserPlants(@Param("userPlantId") int userPlantId);
 
+    @Query("SELECT u.userPlantId FROM UserPlant u")
+    List<Integer> findAllUserPlantIds();
 }

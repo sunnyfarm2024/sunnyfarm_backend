@@ -46,9 +46,6 @@ public class Plant {
     @Column(name = "max_image")
     private String maxImage;
 
-    @Column(name = "dead_image")
-    private String deadImage;
-
     public enum Difficulty {
         EASY,
         MEDIUM,

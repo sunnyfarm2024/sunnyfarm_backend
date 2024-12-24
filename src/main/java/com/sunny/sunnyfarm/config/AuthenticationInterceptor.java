@@ -17,9 +17,9 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
 
         Object userId = request.getSession().getAttribute("userId");
 
-        System.out.println("===============");
+        System.out.println("=========");
         System.out.println(userId);
-        System.out.println("===============");
+        System.out.println("=========");
 
         if (userId == null) {
             System.out.println("로그인 필요");

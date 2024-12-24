@@ -46,5 +46,5 @@ public interface InventoryRepository extends JpaRepository<Inventory, Integer> {
     Optional<Inventory> findByUserIdAndSlotNumber(@Param("userId") Integer userId, @Param("slotNumber") int slotNumber);
 
     @Query("SELECT i FROM Inventory i WHERE i.user.userId = :userId AND i.item IS NULL")
-    Optional<Inventory> findFirstByUserIdAndItemIsNull(Integer userId);
+    List<Inventory> findAllByUserIdAndItemIsNull(Integer userId);
 }

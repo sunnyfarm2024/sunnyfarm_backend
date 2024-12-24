@@ -48,4 +48,7 @@ public class Farm {
 
     @Column(name = "gnome_ends_at")
     private LocalDateTime gnomeEndsAt;
+
+    @Column(name = "gnome_image_url", length = 255)
+    private String gnomeImageUrl;
 }

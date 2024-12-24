@@ -4,26 +4,23 @@ import com.sunny.sunnyfarm.entity.Shop;
 import com.sunny.sunnyfarm.entity.User;
 import com.sunny.sunnyfarm.repository.ShopRepository;
 import com.sunny.sunnyfarm.repository.UserRepository;
+import com.sunny.sunnyfarm.service.InventoryService;
 import com.sunny.sunnyfarm.service.ShopService;
 import com.sunny.sunnyfarm.service.TransactionService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class ShopServiceImpl implements ShopService {
 
     private final TransactionService transactionService;
-
+    private final InventoryService inventoryService;
     private final ShopRepository shopRepository;
     private final UserRepository userRepository;
-
-    public ShopServiceImpl(TransactionService transactionService, ShopRepository shopRepository, UserRepository userRepository) {
-        this.transactionService = transactionService;
-        this.shopRepository = shopRepository;
-        this.userRepository = userRepository;
-    }
 
     @Override
     public List<Shop> getItemList() {
@@ -73,10 +70,10 @@ public class ShopServiceImpl implements ShopService {
                 user.setCoinBalance(user.getCoinBalance() + price);
             }
         } else {
-//            if (!inventoryService.checkAvailableSlot(userId)) {
-//                return ResponseEntity.status(400).body("인벤토리가 꽉 찼습니다.");
-//            }
-//            inventoryService.addItem(userId, item.getItemId());
+            if (!inventoryService.checkAvailableSlot(userId)) {
+                return ResponseEntity.status(400).body("인벤토리가 꽉 찼습니다.");
+            }
+            inventoryService.addItem(userId, item.getItemId());
         }
 
         userRepository.save(user); // 재화 업데이트 저장

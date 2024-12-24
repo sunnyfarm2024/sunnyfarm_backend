@@ -19,6 +19,10 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Random;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.File;
+
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
@@ -33,7 +37,7 @@ public class UserServiceImpl implements UserService {
     private final UserTitleRepository userTitleRepository;
     private final ShopRepository shopRepository;
     private final GoogleOAuthService googleOAuthService;
-    private static final String UPLOAD_DIR = "/Applications/sunnyfarm/src/main/resources/static/uploads/";
+    private static final String UPLOAD_DIR = System.getProperty("user.dir") + "/src/main/resources/static/uploads";
 
     // user_id
     public Integer getUserIdByEmail(String email) {
@@ -68,9 +72,9 @@ public class UserServiceImpl implements UserService {
     }
 
     // 닉네임 중복 체크
-    public boolean checkUserName(String userName) {
+    public boolean checkUserName(String userName, int userId) {
         return userRepository.findByUserName(userName)
-                .filter(user -> !user.getUserName().equals(userName)) // 현재 사용자의 ID 제외
+                .filter(user -> user.getUserId() != userId) // 기본 타입 비교
                 .isPresent();
     }
 
@@ -251,11 +255,6 @@ public class UserServiceImpl implements UserService {
             user.setLongitude(longitude);
             userRepository.save(user);
 
-            System.out.println("위치 저장=========");
-            System.out.println(userId);
-            System.out.println(latitude);
-            System.out.println(longitude);
-            System.out.println("================");
             // 성공 시 SUCCESS 반환
             return CheckResult.SUCCESS;
         } catch (Exception e) {
@@ -267,7 +266,7 @@ public class UserServiceImpl implements UserService {
 
     // 닉네임 수정
     public CheckResult updateUserName(int userId, String userName) {
-        if(checkUserName(userName)){
+        if(checkUserName(userName, userId)){
             return CheckResult.DUPLICATE;
         }
 
@@ -284,29 +283,38 @@ public class UserServiceImpl implements UserService {
     // 프로필 사진 수정
     public CheckResult saveProfilePicture(Integer userId, MultipartFile file){
         try {
-            // 원본 파일 확장자 추출
-            String originalFilename = file.getOriginalFilename();
-            String fileExtension = "";
-            if (originalFilename.contains(".")) {
-                fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            // 저장 디렉토리 확인 및 생성
+            Path uploadPath = Paths.get(UPLOAD_DIR);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
             }
 
-            // 파일 이름 변경: profile{userId}.{확장자}
-            String newFileName = "profile" + userId + fileExtension;
+            // 기존 파일 삭제 경로
+            String targetFileName = "profile" + userId + ".png";
+            Path targetFilePath = uploadPath.resolve(targetFileName);
 
-            // 저장 경로 생성
-            Path filePath = Paths.get(UPLOAD_DIR, newFileName);
-
-            // 기존 파일 삭제
-            if (Files.exists(filePath)) {
-                Files.delete(filePath); // 파일 삭제
+            if (Files.exists(targetFilePath)) {
+                Files.delete(targetFilePath); // 기존 파일 삭제
             }
 
-            // 파일 저장
-            file.transferTo(filePath.toFile());
+            // 받은 파일을 BufferedImage로 읽음 (JPG/PNG 변환 지원)
+            BufferedImage bufferedImage = ImageIO.read(file.getInputStream());
 
-            return CheckResult.SUCCESS;
+            // 파일 저장 경로
+            File outputFile = targetFilePath.toFile();
+
+            // PNG 형식으로 저장
+            ImageIO.write(bufferedImage, "png", outputFile);
+
+            // 파일 저장이 완료된 후 응답 반환
+            if (Files.exists(targetFilePath)) {
+                return CheckResult.SUCCESS;
+            } else {
+                return CheckResult.FAIL;
+            }
+
         } catch (IOException e) {
+            e.printStackTrace();
             return CheckResult.FAIL;
         }
     }

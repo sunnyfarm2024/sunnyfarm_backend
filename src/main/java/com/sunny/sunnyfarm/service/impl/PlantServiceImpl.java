@@ -1,11 +1,13 @@
 package com.sunny.sunnyfarm.service.impl;
 
 import com.sunny.sunnyfarm.dto.PlantDto;
+import com.sunny.sunnyfarm.dto.PlantbookDto;
 import com.sunny.sunnyfarm.dto.WeatherDto;
 import com.sunny.sunnyfarm.entity.*;
 import com.sunny.sunnyfarm.repository.*;
 import com.sunny.sunnyfarm.service.PlantService;
 import com.sunny.sunnyfarm.service.TitleService;
+import com.sunny.sunnyfarm.service.WeatherService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -30,6 +32,7 @@ public class PlantServiceImpl implements PlantService {
     private final UserRepository userRepository;
     private final PlantBookRepository plantbookRepository;
     private final TitleRepository titleRepository;
+    private final WeatherService weatherService;
 
     public List<PlantDto> getPlant(Integer farmId){
         Farm farm = farmRepository.findById(farmId)
@@ -51,6 +54,7 @@ public class PlantServiceImpl implements PlantService {
             String plantImage = findPlantImage(userPlant, plant);
 
             PlantDto plantDto = new PlantDto(
+                    userPlant.getPlant().getPlantId(),
                     userPlant.getPlantName(),
                     plant.getPlantType().name(),
                     userPlant.getGrowthStage().name(),
@@ -59,12 +63,22 @@ public class PlantServiceImpl implements PlantService {
                     userPlant.getLivesLeft(),
                     plantLocation,
                     plantImage,
-                    plant.getDifficulty().name(),
                     userPlant.getFertilizerEndsAt()
             );
             plantDtos.add(plantDto);
         }
         return plantDtos;
+    }
+
+    @Override
+    public List<PlantbookDto> getPlantBook(Integer userId) {
+        List<PlantBook> plantBooks = plantbookRepository.getByUserId(userId);
+
+        return plantBooks.stream()
+                .map(plantBook -> new PlantbookDto(
+                        plantBook.getPlantbookDescription(),
+                        plantBook.getPlantbookImage()
+                )).toList();
     }
 
     private String findPlantLocation(Farm farm, UserPlant userPlant) {
@@ -80,7 +94,7 @@ public class PlantServiceImpl implements PlantService {
 
     private String findPlantImage(UserPlant userPlant, Plant plant) {
         if (userPlant.getLivesLeft() == 0) {
-            return plant.getDeadImage();
+            return "/image/plant/dead.png";
         } else {
             return switch (userPlant.getGrowthStage()) {
                 case LEVEL1 -> plant.getLevel1Image();
@@ -163,17 +177,21 @@ public class PlantServiceImpl implements PlantService {
         Plant plant = userPlant.getPlant();
         User user = userPlant.getFarm().getUser();
 
-        //WeatherDto 가져오기 ~ : parameter : userId (user.userId)
+        WeatherDto weatherDto;
 
-        WeatherDto weatherDto = new WeatherDto(
-                "19",
-                "1",
-                "0",
-                "58",
-                "0",
-                "1"
-        );
-
+        try {
+            weatherDto = weatherService.getWeather(user.getUserId());
+        } catch (Exception e) {
+            System.err.println("기상청 데이터 가져오기 실패: " + e.getMessage());
+            // 기본값 설정
+            weatherDto = new WeatherDto();
+            weatherDto.setLightning("0"); // 낙뢰 없음
+            weatherDto.setWindSpeed("5"); // 낮은 풍속
+            weatherDto.setPrecipitationType("0"); // 강수 없음
+            weatherDto.setSkyStatus("1"); // 맑음
+            weatherDto.setHumidity("50"); // 적정 습도
+            weatherDto.setTemperature("20"); // 적정 온도
+        }
 
         LocalDateTime now = LocalDateTime.now();
 

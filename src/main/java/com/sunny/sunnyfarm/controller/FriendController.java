@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-@CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @RequestMapping("/friend")
 public class FriendController {
@@ -22,30 +21,30 @@ public class FriendController {
 
     @GetMapping("/list")
     public ResponseEntity<Map<String, List<FriendDto>>> getFriendList(HttpSession session) {
-        Integer userId = (Integer) session.getAttribute("userId");
-        if (userId == null) userId = 1;
+        Integer userId = (Integer) session.getAttribute("userId"); // 세션에서 userId 가져오기
 
         Map<String, List<FriendDto>> friendListByStatus = friendService.getFriendList(userId);
         return ResponseEntity.ok(friendListByStatus);
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<FriendDto>> searchFriend(@RequestParam String userName) {
+    public ResponseEntity<List<FriendDto>> searchFriend(@RequestParam String userName, HttpSession session) {
+        Integer userId = (Integer) session.getAttribute("userId");
+
         try {
-            List<FriendDto> searchList = friendService.searchFriend(userName);
+            List<FriendDto> searchList = friendService.searchFriend(userName, userId);
             return ResponseEntity.ok(searchList);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-
     @PostMapping("/pending")
     public ResponseEntity<String> sendFriendRequest(HttpSession session, @RequestParam int friendUserId) {
         Integer userId = (Integer) session.getAttribute("userId");
+        if (friendUserId == userId) {return ResponseEntity.status(400).body("본인입니다.");}
         return friendService.sendFriendRequest(userId, friendUserId);
     }
-
 
     @PostMapping("/accept")
     public ResponseEntity<String> acceptFriendRequest(HttpSession session, @RequestParam int friendUserId) {

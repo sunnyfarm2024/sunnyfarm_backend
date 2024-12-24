@@ -1,9 +1,7 @@
 package com.sunny.sunnyfarm.service.impl;
 
 import com.sunny.sunnyfarm.dto.QuestDto;
-import com.sunny.sunnyfarm.entity.Quest;
-import com.sunny.sunnyfarm.entity.User;
-import com.sunny.sunnyfarm.entity.UserQuest;
+import com.sunny.sunnyfarm.entity.*;
 import com.sunny.sunnyfarm.repository.UserQuestRepository;
 import com.sunny.sunnyfarm.repository.UserRepository;
 import com.sunny.sunnyfarm.service.QuestService;
@@ -17,8 +15,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class QuestServiceImpl implements QuestService {
-    private final UserRepository userRepository;
     private final UserQuestRepository userQuestRepository;
+    private final UserRepository userRepository;
 
     @Override
     public ResponseEntity<List<QuestDto>> getQuestList(int userId, String type) {
@@ -35,7 +33,11 @@ public class QuestServiceImpl implements QuestService {
         List<QuestDto> questDtoList = userQuests.stream()
                 .map(userQuest -> {
                     Quest quest = userQuest.getQuest();
+                    if (quest.getQuestId() == 8) {
+                        updateQuestProgress(userId, 8);
+                    }
                     return new QuestDto(
+                            quest.getQuestId(),
                             quest.getType().name(),
                             quest.getQuestDescription(),
                             quest.getReward(),
@@ -83,5 +85,6 @@ public class QuestServiceImpl implements QuestService {
     @Override
     public void resetDailyQuests() {
         userQuestRepository.resetDailyQuests();
+        userQuestRepository.resetAttendQuests();
     }
 }

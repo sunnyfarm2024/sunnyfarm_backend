@@ -19,10 +19,21 @@ public class GuestBookController {
     }
 
     @GetMapping("/list")
-    ResponseEntity<List<GuestbookDto>> getGuestbook (@RequestParam int userId) {
-        List<GuestbookDto> guestbookList = guestbookService.getGuestbook(userId);
+    ResponseEntity<List<GuestbookDto>> getGuestbook (@RequestParam(required = false) Integer friendId, HttpSession session) {
+        Integer userId = (Integer) session.getAttribute("userId");
+        List<GuestbookDto> guestbookList;
+
+        if (friendId != null) {
+            // friendId에 대한 방명록 가져오기
+            guestbookList = guestbookService.getGuestbook(friendId);
+        } else {
+            // 로그인한 사용자의 방명록 가져오기
+            guestbookList = guestbookService.getGuestbook(userId);
+        }
+
         return ResponseEntity.ok(guestbookList);
     }
+
 
     @PostMapping("/write")
     ResponseEntity<String> writeGuestbook(HttpSession session, @RequestParam int friendUserId, @RequestParam String content) {

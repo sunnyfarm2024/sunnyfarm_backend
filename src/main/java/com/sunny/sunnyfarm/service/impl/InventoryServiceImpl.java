@@ -93,6 +93,12 @@ public class InventoryServiceImpl implements InventoryService {
                 }
             }
 
+            if (itemCategory == Shop.ItemCategory.FERTILIZER) {
+                if (leftPlantId == 0 && centerPlantId == 0 && rightPlantId == 0) {
+                    inventoryItem.setInventoryItemStatus(false); // 슬롯 모두 사용 중
+                }
+            }
+
             // Fertilizer 시간 설정
             if (!fertilizerTimes.isEmpty()) {
                 Object[] times = fertilizerTimes.get(0);
@@ -172,7 +178,6 @@ public class InventoryServiceImpl implements InventoryService {
         farmRepository.save(farm);
     }
 
-
     private void useGnome(Integer userId, int itemId) {
         // 현재 시간 구하기
         LocalDateTime currentTime = LocalDateTime.now();
@@ -180,13 +185,22 @@ public class InventoryServiceImpl implements InventoryService {
                 ? currentTime.plusHours(10)  // itemId가 10이면 10시간 뒤
                 : currentTime.plusHours(20);  // itemId가 11이면 20시간 뒤
 
-        // Farm에서 userId로 찾기 (farmId로 취급)
-        Farm farm = farmRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("농장을 찾을 수 없습니다."));
+        // Farm에서 userId로 찾기
+        Farm farm = farmRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("농장을 찾을 수 없습니다."));
 
-        // 노움 종료 시간 업데이트
-        farm.setGnomeEndsAt(gnomeEndTime);
-        farmRepository.save(farm);  // Farm 업데이트
+        // Shop 테이블에서 해당 itemId의 이미지 조회
+        Shop shopItem = shopRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 아이템을 찾을 수 없습니다."));
+
+        String gnomeImageUrl = shopItem.getItemImageUrl();
+
+        // Farm 엔티티 업데이트
+        farm.setGnomeEndsAt(gnomeEndTime);  // 노움 종료 시간 업데이트
+        farm.setGnomeImageUrl(gnomeImageUrl);  // 노움 이미지 URL 업데이트
+        farmRepository.save(farm);  // Farm 저장
     }
+
 
     private void useFertilizer(Integer userId, int itemId, String location) {
         // 현재 시간 구하기
@@ -267,18 +281,31 @@ public class InventoryServiceImpl implements InventoryService {
         farmRepository.save(farm);
     }
 
+    public boolean checkAvailableSlot(int userId) {
+        // NULL인 슬롯 찾기
+        List<Inventory> emptySlots = inventoryRepository.findAllByUserIdAndItemIsNull(userId);
+
+        // 리스트가 비어있지 않으면 true, 비어있으면 false 반환
+        return !emptySlots.isEmpty();
+    }
+
+
     // 추가하기
     public void addItem(Integer userId, Integer itemId) {
         // NULL인 슬롯 찾기
-        Optional<Inventory> emptySlot = inventoryRepository.findFirstByUserIdAndItemIsNull(userId);
+        List<Inventory> emptySlots = inventoryRepository.findAllByUserIdAndItemIsNull(userId);
 
-        if (emptySlot.isPresent()) {
-            // 슬롯이 존재하면 itemId 추가
-            Inventory inventory = emptySlot.get();
+        if (!emptySlots.isEmpty()) {
+            // 첫 번째 빈 슬롯 가져오기
+            Inventory inventory = emptySlots.get(0);
+
+            // 아이템 설정
             Shop item = shopRepository.findById(itemId)
                     .orElseThrow(() -> new IllegalArgumentException("Item을 찾을 수 없습니다."));
             inventory.setItem(item); // itemId 설정
-            inventoryRepository.save(inventory); // 변경된 슬롯 저장
+
+            // 변경된 슬롯 저장
+            inventoryRepository.save(inventory);
         }
     }
 

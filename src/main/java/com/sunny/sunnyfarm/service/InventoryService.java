@@ -9,4 +9,5 @@ public interface InventoryService {
     CheckResult useItem(Integer userId, int slotNumber, String location, String plantName);
     void addItem(Integer userId, Integer itemId);
     CheckResult deleteItem(Integer userId, int slotNumber);
+    boolean checkAvailableSlot(int userId);
 }

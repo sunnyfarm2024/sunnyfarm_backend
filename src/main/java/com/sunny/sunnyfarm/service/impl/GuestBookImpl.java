@@ -25,7 +25,7 @@ public class GuestBookImpl implements GuestBookService {
         List<GuestBook> guestBookList = guestbookRepository.findByUserId(userId);
         return guestBookList.stream()
                 .map(guestbook -> new GuestbookDto(
-                        guestbook.getAuthor().getUserId(),
+                        guestbook.getAuthor().getUserName(),
                         guestbook.getContent(),
                         guestbook.getCreatedAt()
                 ))

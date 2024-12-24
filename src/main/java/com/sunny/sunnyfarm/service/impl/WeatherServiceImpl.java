@@ -5,9 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sunny.sunnyfarm.dto.WeatherDto;
 import com.sunny.sunnyfarm.entity.User;
 import com.sunny.sunnyfarm.repository.UserRepository;
-import com.sunny.sunnyfarm.service.WeatherServise;
+import com.sunny.sunnyfarm.service.WeatherService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -19,7 +20,7 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
-public class WeatherServiceImpl implements WeatherServise {
+public class WeatherServiceImpl implements WeatherService {
 
     private final UserRepository userRepository;
     private final RestTemplate restTemplate;
@@ -48,7 +49,7 @@ public class WeatherServiceImpl implements WeatherServise {
         String baseDate = baseDateTime[0];
         String baseTime = baseDateTime[1];
 
-        // 기상청 api 요청 url
+        // 기상청 API 요청 URL
         String url = API_URL +
                 "?serviceKey=" + apiKey +
                 "&pageNo=1" +
@@ -59,17 +60,37 @@ public class WeatherServiceImpl implements WeatherServise {
                 "&nx=" + nx +
                 "&ny=" + ny;
 
-        // api 호출
-        URI uri = URI.create(url);
-        String response = restTemplate.getForObject(uri, String.class);
+        // 요청 타임아웃 설정
+        RestTemplate restTemplate = createRestTemplateWithTimeout(5000); // 타임아웃 5초
 
-        System.out.println("========");
-        System.out.println(uri);
-        System.out.println("========");
+        for (int i = 0; i < 3; i++) { // 최대 3번 재시도
+            try {
+                // API 호출
+                URI uri = URI.create(url);
+                String response = restTemplate.getForObject(uri, String.class);
 
-        // 날씨 데이터 분석
-        return parseWeatherData(response);
+                // 데이터 분석 후 반환
+                return parseWeatherData(response);
+
+            } catch (Exception e) {
+                System.err.println("요청 실패: " + e.getMessage());
+                if (i == 2) { // 3번 재시도 후 실패
+                    throw new RuntimeException("Weather API 요청이 3번 실패했습니다.");
+                }
+                System.out.println("재시도 중...");
+            }
+        }
+
+        throw new RuntimeException("Weather API 요청 실패");
     }
+
+    private RestTemplate createRestTemplateWithTimeout(int timeoutMillis) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(timeoutMillis);
+        factory.setReadTimeout(timeoutMillis);
+        return new RestTemplate(factory);
+    }
+
 
     // 날씨 데이터 분석
     private WeatherDto parseWeatherData(String response) {
