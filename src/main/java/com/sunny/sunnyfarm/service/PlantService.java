@@ -13,7 +13,7 @@ public interface PlantService {
     List<PlantbookDto> getPlantBook(Integer userId);
     ResponseEntity<String> waterPlant(int userId, int userPlantId);
     ResponseEntity<String> sellPlant(int userId, int userPlantId);
-    boolean deletePlant(int userPlantId);
+    boolean deletePlant(int userId, int userPlantId);
     void updateGrowthStage(int userPlantId);
     UserPlant applyWeather(UserPlant userPlant, WeatherDto weatherDto);
     void addToPlantBook(int userId, int plantId);

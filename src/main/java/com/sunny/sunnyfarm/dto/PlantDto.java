@@ -10,14 +10,15 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PlantDto {
-    private int uerPlantId;
+    private int userPlantId;
     private String plantName;
     private String plantType;
     private String growthStage;
-    private String growthProgress;
+    private float progressRatio;
     private int waterLevel;
     private int livesLeft;
     private String plantLocation;
     private String plantImage;
     private LocalDateTime fertilizerEndsAt;
+    private String fertilizerType;
 }

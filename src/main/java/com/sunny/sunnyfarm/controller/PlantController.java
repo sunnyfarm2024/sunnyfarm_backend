@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/plant")
@@ -34,15 +35,19 @@ public class PlantController {
     }
 
     @PostMapping("/sell")
-    ResponseEntity<String> sellPlant(HttpSession session, @RequestParam int userPlantId) {
+    public ResponseEntity<String> sellPlant(HttpSession session, @RequestBody Map<String, Integer> request) {
         Integer userId = (Integer) session.getAttribute("userId");
+        Integer userPlantId = request.get("userPlantId");
 
         return plantService.sellPlant(userId, userPlantId);
     }
 
+
     @DeleteMapping("/delete")
-    ResponseEntity<String> deletePlant(@RequestParam int userPlantId) {
-        if (plantService.deletePlant(userPlantId)) {
+    ResponseEntity<String> deletePlant(HttpSession session, @RequestParam int userPlantId) {
+        Integer userId = (Integer) session.getAttribute("userId");
+
+        if (plantService.deletePlant(userId, userPlantId)) {
             return ResponseEntity.ok("식물을 버렸습니다.");
         } else {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("식물을 버리지 못했습니다.");

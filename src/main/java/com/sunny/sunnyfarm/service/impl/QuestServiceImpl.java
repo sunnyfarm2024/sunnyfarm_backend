@@ -33,9 +33,6 @@ public class QuestServiceImpl implements QuestService {
         List<QuestDto> questDtoList = userQuests.stream()
                 .map(userQuest -> {
                     Quest quest = userQuest.getQuest();
-                    if (quest.getQuestId() == 8) {
-                        updateQuestProgress(userId, 8);
-                    }
                     return new QuestDto(
                             quest.getQuestId(),
                             quest.getType().name(),

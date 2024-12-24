@@ -6,6 +6,7 @@ import com.sunny.sunnyfarm.dto.WeatherDto;
 import com.sunny.sunnyfarm.entity.*;
 import com.sunny.sunnyfarm.repository.*;
 import com.sunny.sunnyfarm.service.PlantService;
+import com.sunny.sunnyfarm.service.QuestService;
 import com.sunny.sunnyfarm.service.TitleService;
 import com.sunny.sunnyfarm.service.WeatherService;
 import jakarta.persistence.EntityNotFoundException;
@@ -33,8 +34,9 @@ public class PlantServiceImpl implements PlantService {
     private final PlantBookRepository plantbookRepository;
     private final TitleRepository titleRepository;
     private final WeatherService weatherService;
+    private final QuestService questService;
 
-    public List<PlantDto> getPlant(Integer farmId){
+    public List<PlantDto> getPlant(Integer farmId) {
         Farm farm = farmRepository.findById(farmId)
                 .orElseThrow(() -> new IllegalArgumentException("농장을 찾을 수 없습니다. ID: " + farmId));
 
@@ -53,22 +55,71 @@ public class PlantServiceImpl implements PlantService {
             String plantLocation = findPlantLocation(farm, userPlant);
             String plantImage = findPlantImage(userPlant, plant);
 
+            // Progress ratio 계산
+            float progressRatio = calculateProgressRatio(userPlant, plant);
+
             PlantDto plantDto = new PlantDto(
-                    userPlant.getPlant().getPlantId(),
+                    userPlant.getUserPlantId(),
                     userPlant.getPlantName(),
                     plant.getPlantType().name(),
                     userPlant.getGrowthStage().name(),
-                    String.valueOf(userPlant.getGrowthProgress()),
+                    progressRatio, // 계산된 progressRatio 추가
                     userPlant.getWaterLevel(),
                     userPlant.getLivesLeft(),
                     plantLocation,
                     plantImage,
-                    userPlant.getFertilizerEndsAt()
+                    userPlant.getFertilizerEndsAt(),
+                    userPlant.getFertilizerType() != null ? userPlant.getFertilizerType().name() : null // null 체크 추가
             );
+
             plantDtos.add(plantDto);
         }
         return plantDtos;
     }
+
+    private float calculateProgressRatio(UserPlant userPlant, Plant plant) {
+        float maxSunlight;
+
+        // 난이도에 따른 최대 일조량 설정
+        switch (plant.getDifficulty().name()) {
+            case "EASY":
+                maxSunlight = 20;
+                break;
+            case "MEDIUM":
+                maxSunlight = 30;
+                break;
+            case "HARD":
+                maxSunlight = 40;
+                break;
+            default:
+                throw new IllegalArgumentException("알 수 없는 난이도: " + plant.getDifficulty().name());
+        }
+
+        float accumulatedSunlightHours = userPlant.getSunlightHours();
+        float progressRatio = 0;
+
+        // 현재 성장 단계에 따른 진행도 계산
+        switch (userPlant.getGrowthStage()) {
+            case LEVEL1:
+                progressRatio = accumulatedSunlightHours / (maxSunlight / 3);
+                break;
+            case LEVEL2:
+                progressRatio = (accumulatedSunlightHours - (maxSunlight / 3)) / (maxSunlight / 3);
+                break;
+            case LEVEL3:
+                progressRatio = (accumulatedSunlightHours - (maxSunlight * 2 / 3)) / (maxSunlight / 3);
+                break;
+            case MAX:
+                progressRatio = 1; // MAX 단계는 항상 100%
+                break;
+            default:
+                throw new IllegalArgumentException("알 수 없는 성장 단계: " + userPlant.getGrowthStage());
+        }
+
+        // 진행도는 0 ~ 1 사이로 제한
+        return Math.max(0, Math.min(progressRatio, 1));
+    }
+
 
     @Override
     public List<PlantbookDto> getPlantBook(Integer userId) {
@@ -138,18 +189,34 @@ public class PlantServiceImpl implements PlantService {
 
     @Override
     public ResponseEntity<String> sellPlant(int userId, int userPlantId) {
+        // UserPlant 객체를 조회
         UserPlant userPlant = userPlantRepository.findByUserPlantId(userPlantId);
-        User user = userRepository.findById(userId).orElseThrow(() -> new EntityNotFoundException("회원 정보를 찾을 수가 없습니다"));
-        Plant plant = plantRepository.findById(userPlantId).orElseThrow(() -> new EntityNotFoundException("해당 식물을 찾을 수 없습니다"));
+        if (userPlant == null) {
+            throw new EntityNotFoundException("해당 식물을 찾을 수 없습니다: UserPlant ID = " + userPlantId);
+        }
 
+        // User 객체를 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("회원 정보를 찾을 수 없습니다: User ID = " + userId));
 
+        // Plant 객체는 UserPlant에서 직접 가져옴
+        Plant plant = userPlant.getPlant();
+        if (plant == null) {
+            throw new EntityNotFoundException("해당 식물 정보를 찾을 수 없습니다: Plant ID = " + userPlant.getPlant().getPlantId());
+        }
+
+        // 성장 단계 확인
         if (userPlant.getGrowthStage() == UserPlant.GrowthStage.MAX) {
-            if (deletePlant(userPlantId)) {
+            // 식물 삭제
+            if (deletePlant(userId, userPlantId)) {
+                // 사용자 코인 업데이트
                 int price = plant.getSalePrice();
-                int coinBalance = user.getCoinBalance();
-                user.setCoinBalance(price + coinBalance);
-                userPlantRepository.save(userPlant);
-                //퀘스트 달성
+                user.setCoinBalance(user.getCoinBalance() + price);
+                userRepository.save(user);
+
+                // 퀘스트 진행 업데이트
+                questService.updateQuestProgress(userId, plant.getPlantId());
+
                 return ResponseEntity.ok("식물을 판매했습니다.");
             } else {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("판매 실패했습니다.");
@@ -159,15 +226,29 @@ public class PlantServiceImpl implements PlantService {
         }
     }
 
+
     @Override
-    public boolean deletePlant(int userPlantId) {
+    public boolean deletePlant(int farmId, int userPlantId) {
         try {
+            // 참조 해제 로그
+            System.out.println("참조 해제 작업 시작: farmId=" + farmId + ", userPlantId=" + userPlantId);
+            farmRepository.clearPlantReference(farmId, userPlantId);
+            System.out.println("참조 해제 완료");
+
+            // UserPlant 삭제 로그
+            System.out.println("UserPlant 삭제 작업 시작: userPlantId=" + userPlantId);
             userPlantRepository.deleteById(userPlantId);
+            System.out.println("UserPlant 삭제 완료");
+
             return true;
         } catch (Exception e) {
+            // 예외 발생 로그
+            System.err.println("삭제 작업 중 예외 발생: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
+
 
     @Override
     public void updateGrowthStage(int userPlantId) {

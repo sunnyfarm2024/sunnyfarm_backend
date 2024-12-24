@@ -52,11 +52,20 @@ public class UserPlant {
     @Column(name = "fertilizer_ends_at")
     private LocalDateTime fertilizerEndsAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fertilizer_type")
+    private FertilizerType fertilizerType;
+
     public enum GrowthStage {
         LEVEL1,
         LEVEL2,
         LEVEL3,
         MAX
+    }
+
+    public enum FertilizerType {
+        STANDARD,
+        PREMIUM,
     }
 }
 

@@ -207,16 +207,20 @@ public class InventoryServiceImpl implements InventoryService {
         LocalDateTime currentTime = LocalDateTime.now();
         LocalDateTime fertilizerEndTime = itemId == 8
                 ? currentTime.plusHours(10)  // itemId가 8이면 10시간 뒤
-                : currentTime.plusHours(20);  // itemId가 9이면 20시간 뒤
+                : currentTime.plusHours(20); // itemId가 9이면 20시간 뒤
 
         // Farm에서 userId로 찾기
         Farm farm = farmRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("농장을 찾을 수 없습니다."));
+
+        // FertilizerType 결정
+        UserPlant.FertilizerType fertilizerType = itemId == 8 ? UserPlant.FertilizerType.STANDARD : UserPlant.FertilizerType.PREMIUM;
 
         // 위치에 맞는 UserPlant를 찾기
         switch (location) {
             case "left":
                 if (farm.getLeftPlant() != null) {
                     farm.getLeftPlant().setFertilizerEndsAt(fertilizerEndTime);
+                    farm.getLeftPlant().setFertilizerType(fertilizerType); // FertilizerType 설정
                     farmRepository.save(farm);
                 } else {
                     throw new IllegalArgumentException("left 위치에 식물이 없습니다.");
@@ -225,6 +229,7 @@ public class InventoryServiceImpl implements InventoryService {
             case "center":
                 if (farm.getCenterPlant() != null) {
                     farm.getCenterPlant().setFertilizerEndsAt(fertilizerEndTime);
+                    farm.getCenterPlant().setFertilizerType(fertilizerType); // FertilizerType 설정
                     farmRepository.save(farm);
                 } else {
                     throw new IllegalArgumentException("center 위치에 식물이 없습니다.");
@@ -233,6 +238,7 @@ public class InventoryServiceImpl implements InventoryService {
             case "right":
                 if (farm.getRightPlant() != null) {
                     farm.getRightPlant().setFertilizerEndsAt(fertilizerEndTime);
+                    farm.getRightPlant().setFertilizerType(fertilizerType); // FertilizerType 설정
                     farmRepository.save(farm);
                 } else {
                     throw new IllegalArgumentException("right 위치에 식물이 없습니다.");
